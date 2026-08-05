@@ -3,6 +3,7 @@ const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const authRoutes = require('./modules/auth/routes');
+const communicationRoutes = require('./modules/communication/routes');
 const errorHandler = require('./shared/middleware/errorHandler');
 
 const app = express();
@@ -20,6 +21,7 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use('/api', limiter);
 
 app.use('/api/auth', authRoutes);
+app.use('/api/communication', communicationRoutes);
 
 app.get('/health', (req, res) => {
   res.status(200).json({ status: 'OK', message: 'NovaOS API is running' });
