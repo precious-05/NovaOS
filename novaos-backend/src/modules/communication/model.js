@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+﻿const mongoose = require('mongoose');
 
 const conversationSchema = new mongoose.Schema({
   companyId: {
@@ -7,8 +7,7 @@ const conversationSchema = new mongoose.Schema({
     required: true
   },
   customerId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Customer',
+    type: String,
     required: true
   },
   channel: {
@@ -58,7 +57,7 @@ const messageSchema = new mongoose.Schema({
   }
 });
 
-const Conversation = mongoose.model('Conversation', conversationSchema);
-const Message = mongoose.model('Message', messageSchema);
+const Conversation = mongoose.models.Conversation || mongoose.model('Conversation', conversationSchema);
+const Message = mongoose.models.Message || mongoose.model('Message', messageSchema);
 
 module.exports = { Conversation, Message };
