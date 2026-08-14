@@ -2,9 +2,11 @@ const { Task, Meeting, Document } = require("./model");
 const { extractTextFromImage } = require("./ocrService");
 const { processMeetingAudio } = require("./transcriptionService");
 
-// ---------- TASKS ----------
+// =============================================
+// ===== TASKS =====
+// =============================================
 
-async function createTask(req, res) {
+exports.createTask = async (req, res) => {
   try {
     const { title, assignedTo, priority, deadline } = req.body;
     const task = await Task.create({
@@ -18,18 +20,18 @@ async function createTask(req, res) {
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
-}
+};
 
-async function getTasks(req, res) {
+exports.getTasks = async (req, res) => {
   try {
     const tasks = await Task.find({ companyId: req.user.companyId }).sort({ createdAt: -1 });
     res.json({ success: true, message: "Tasks retrieved", data: tasks });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
-}
+};
 
-async function updateTask(req, res) {
+exports.updateTask = async (req, res) => {
   try {
     const task = await Task.findOneAndUpdate(
       { _id: req.params.id, companyId: req.user.companyId },
@@ -41,9 +43,9 @@ async function updateTask(req, res) {
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
-}
+};
 
-async function deleteTask(req, res) {
+exports.deleteTask = async (req, res) => {
   try {
     const task = await Task.findOneAndDelete({ _id: req.params.id, companyId: req.user.companyId });
     if (!task) return res.status(404).json({ success: false, message: "Task not found" });
@@ -51,11 +53,13 @@ async function deleteTask(req, res) {
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
-}
+};
 
-// ---------- MEETINGS ----------
+// =============================================
+// ===== MEETINGS =====
+// =============================================
 
-async function transcribeMeeting(req, res) {
+exports.transcribeMeeting = async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ success: false, message: "No audio file uploaded" });
@@ -90,9 +94,9 @@ async function transcribeMeeting(req, res) {
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
-}
+};
 
-async function getMeeting(req, res) {
+exports.getMeeting = async (req, res) => {
   try {
     const meeting = await Meeting.findOne({ _id: req.params.id, companyId: req.user.companyId });
     if (!meeting) return res.status(404).json({ success: false, message: "Meeting not found" });
@@ -100,11 +104,25 @@ async function getMeeting(req, res) {
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
-}
+};
 
-// ---------- DOCUMENTS ----------
+// ✅ ADDED: Get all meetings for the company
+exports.getMeetings = async (req, res) => {
+  try {
+    const meetings = await Meeting.find({ companyId: req.user.companyId })
+      .sort({ createdAt: -1 });
+    res.json({ success: true, message: "Meetings retrieved", data: meetings });
+  } catch (err) {
+    console.error('❌ Error fetching meetings:', err.message);
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
 
-async function uploadDocument(req, res) {
+// =============================================
+// ===== DOCUMENTS =====
+// =============================================
+
+exports.uploadDocument = async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ success: false, message: "No file uploaded" });
@@ -136,9 +154,9 @@ async function uploadDocument(req, res) {
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
-}
+};
 
-async function getDocument(req, res) {
+exports.getDocument = async (req, res) => {
   try {
     const document = await Document.findOne({ _id: req.params.id, companyId: req.user.companyId });
     if (!document) return res.status(404).json({ success: false, message: "Document not found" });
@@ -146,10 +164,15 @@ async function getDocument(req, res) {
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
-}
-
-module.exports = {
-  createTask, getTasks, updateTask, deleteTask,
-  transcribeMeeting, getMeeting,
-  uploadDocument, getDocument
+};
+// ===== GET ALL DOCUMENTS =====
+exports.getDocuments = async (req, res) => {
+  try {
+    const documents = await Document.find({ companyId: req.user.companyId })
+      .sort({ createdAt: -1 });
+    res.json({ success: true, message: "Documents retrieved", data: documents });
+  } catch (err) {
+    console.error('❌ Error fetching documents:', err.message);
+    res.status(500).json({ success: false, message: err.message });
+  }
 };

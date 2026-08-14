@@ -1,66 +1,67 @@
 // transcriptionService.js
-// Step 1: audio -> text using local Whisper (via a Python script, since Node doesn't
-//         have a mature free Whisper binding — Python's openai-whisper is the reliable free option)
-// Step 2: text -> summary + action items using Groq (Llama 3.3 70B)
-//
-// npm install groq-sdk
-// pip install openai-whisper  (one-time, on the machine running the backend)
+const { exec } = require('child_process');
+const path = require('path');
+const fs = require('fs');
+const util = require('util');
+const execPromise = util.promisify(exec);
 
-const { execFile } = require("child_process");
-const path = require("path");
-const Groq = require("groq-sdk");
-
-// Lazily created — NOT at module load time. server.js requires app.js (which
-// pulls in this file) BEFORE it calls dotenv.config(), so if we build the
-// Groq client at the top level here, process.env.GROQ_API_KEY is still
-// undefined at that point. Creating it inside the function that uses it
-// guarantees .env has already been loaded by then.
-let groqClient = null;
-function getGroqClient() {
-  if (!groqClient) {
-    groqClient = new Groq({ apiKey: process.env.GROQ_API_KEY });
+/**
+ * Process meeting audio file using Whisper (Python)
+ * @param {string} audioFilePath - Path to the audio file
+ * @returns {Promise<{transcript: string, summary: string, actionItems: string[]}>}
+ */
+async function processMeetingAudio(audioFilePath) {
+  console.log(`🎤 Processing audio file: ${audioFilePath}`);
+  
+  // Check if file exists
+  if (!fs.existsSync(audioFilePath)) {
+    throw new Error(`Audio file not found: ${audioFilePath}`);
   }
-  return groqClient;
-}
 
-function runWhisper(audioFilePath) {
-  return new Promise((resolve, reject) => {
-    const scriptPath = path.join(__dirname, "../../../scripts/transcribe.py");
-    execFile("python", [scriptPath, audioFilePath], { maxBuffer: 1024 * 1024 * 20 }, (err, stdout, stderr) => {
-      if (err) return reject(new Error(stderr || err.message));
-      resolve(stdout.trim());
-    });
-  });
-}
-
-async function summarizeTranscript(transcript) {
-  const prompt = `You are given a meeting transcript. Return ONLY valid JSON, no markdown fences, no extra text, in this exact shape:
-{"summary": "2-4 sentence summary", "actionItems": ["item 1", "item 2"]}
-
-Transcript:
-${transcript}`;
-
-  const response = await getGroqClient().chat.completions.create({
-    model: "llama-3.3-70b-versatile",
-    messages: [{ role: "user", content: prompt }],
-    temperature: 0.3
-  });
-
-  const raw = response.choices[0].message.content.trim();
-  const cleaned = raw.replace(/```json|```/g, "").trim();
+  // Path to the Python script
+  const scriptPath = path.join(__dirname, 'scripts', 'transcribe.py');
+  
+  // Check if script exists
+  if (!fs.existsSync(scriptPath)) {
+    console.error(`❌ Python script not found at: ${scriptPath}`);
+    // Fallback: return dummy data if script doesn't exist
+    return {
+      transcript: "Transcription not available. Please install Whisper.",
+      summary: "Summary not available.",
+      actionItems: ["Install Whisper for transcription"]
+    };
+  }
 
   try {
-    return JSON.parse(cleaned);
-  } catch (e) {
-    // fallback if the model didn't return clean JSON
-    return { summary: cleaned, actionItems: [] };
-  }
-}
+    // Call Python script with the audio file path
+    const { stdout, stderr } = await execPromise(
+      `python "${scriptPath}" "${audioFilePath}"`,
+      { timeout: 300000 } // 5 minute timeout
+    );
 
-async function processMeetingAudio(audioFilePath) {
-  const transcript = await runWhisper(audioFilePath);
-  const { summary, actionItems } = await summarizeTranscript(transcript);
-  return { transcript, summary, actionItems };
+    if (stderr) {
+      console.warn(`⚠️ Python stderr: ${stderr}`);
+    }
+
+    // Parse the JSON output from Python
+    const result = JSON.parse(stdout);
+    console.log(`✅ Transcription complete: ${result.transcript?.length || 0} characters`);
+    
+    return {
+      transcript: result.transcript || "",
+      summary: result.summary || "",
+      actionItems: result.actionItems || []
+    };
+  } catch (error) {
+    console.error(`❌ Transcription failed:`, error.message);
+    
+    // Return fallback data so the meeting doesn't fail
+    return {
+      transcript: "Transcription processing failed. Please check Whisper installation.",
+      summary: "Summary not available due to processing error.",
+      actionItems: ["Check Whisper installation and try again"]
+    };
+  }
 }
 
 module.exports = { processMeetingAudio };
