@@ -3,7 +3,7 @@ const express = require('express');
 const mongoose = require('mongoose');
 const dotenv = require('dotenv');
 const cors = require('cors');
-
+const communicationRoutes = require('./src/modules/communication/routes'); // ← Member 2
 // Load environment variables
 dotenv.config();
 
@@ -27,7 +27,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/sales', salesRoutes);
 app.use('/api/reports', reportingRoutes);
 app.use('/api/productivity', productivityRoutes);  // ← ADD THIS
-
+app.use('/api/communication', communicationRoutes); // ← Member 2
 // Test route
 app.get('/api/test', (req, res) => {
   res.json({ message: 'API is working!' });
