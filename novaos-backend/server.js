@@ -21,6 +21,8 @@ const salesRoutes = require('./src/modules/sales/routes');
 const reportingRoutes = require('./src/modules/reporting/routes');
 const productivityRoutes = require('./src/modules/productivity/routes');
 const communicationRoutes = require('./src/modules/communication/routes');
+const webhookRoutes = require('./src/modules/communication/webhook.routes');
+const emailRoutes = require('./src/modules/email/routes');
 
 // ============ REGISTER ROUTES ============
 app.use('/api/auth', authRoutes);
@@ -28,6 +30,8 @@ app.use('/api/sales', salesRoutes);
 app.use('/api/reports', reportingRoutes);
 app.use('/api/productivity', productivityRoutes);
 app.use('/api/communication', communicationRoutes);
+app.use('/webhook', webhookRoutes);
+app.use('/api/email', emailRoutes);
 
 // Test route
 app.get('/api/test', (req, res) => {
@@ -58,6 +62,9 @@ app.get('/', (req, res) => {
       conversations: 'GET/POST /api/communication/conversations',
       messages: 'GET /api/communication/conversations/:id/messages',
       send: 'POST /api/communication/send',
+      webhook: 'GET/POST /webhook',
+      emails: 'GET /api/email',
+      emailFetch: 'GET /api/email/fetch',
       summary: 'GET /api/reports/summary',
       sales: 'GET /api/reports/sales',
       productivity: 'GET /api/reports/productivity',
@@ -81,6 +88,8 @@ mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/novaos_db
       console.log(`   /api/reports - Reporting routes`);
       console.log(`   /api/productivity - Productivity routes`);
       console.log(`   /api/communication - Communication routes`);
+      console.log(`   /webhook - WhatsApp webhook`);
+      console.log(`   /api/email - Email routes`);
     });
   })
   .catch(err => {
