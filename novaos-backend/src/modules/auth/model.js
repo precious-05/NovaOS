@@ -1,63 +1,34 @@
+// src/modules/auth/model.js
 const mongoose = require('mongoose');
 
-const conversationSchema = new mongoose.Schema({
+const userSchema = new mongoose.Schema({
+  name: {
+    type: String,
+    required: true
+  },
+  email: {
+    type: String,
+    required: true,
+    unique: true
+  },
+  passwordHash: {
+    type: String,
+    required: true
+  },
   companyId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Company',
     required: true
   },
-  customerId: {
+  role: {
     type: String,
-    required: true
+    enum: ['owner', 'member'],
+    default: 'member'
   },
-  channel: {
-    type: String,
-    enum: ['email', 'whatsapp'],
-    required: [true, 'Channel is required']
-  },
-  status: {
-    type: String,
-    enum: ['open', 'closed'],
-    default: 'open'
-  },
-  lastMessageAt: {
+  createdAt: {
     type: Date,
     default: Date.now
   }
 });
 
-const messageSchema = new mongoose.Schema({
-  conversationId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Conversation',
-    required: true
-  },
-  sender: {
-    type: String,
-    enum: ['customer', 'ai'],
-    required: true
-  },
-  text: {
-    type: String,
-    required: [true, 'Message text is required'],
-    trim: true
-  },
-  intent: {
-    type: String,
-    default: 'unknown'
-  },
-  sentiment: {
-    type: String,
-    enum: ['positive', 'neutral', 'negative'],
-    default: 'neutral'
-  },
-  timestamp: {
-    type: Date,
-    default: Date.now
-  }
-});
-
-const Conversation = mongoose.models.Conversation || mongoose.model('Conversation', conversationSchema);
-const Message = mongoose.models.Message || mongoose.model('Message', messageSchema);
-
-module.exports = { Conversation, Message };
+module.exports = mongoose.model('User', userSchema);
