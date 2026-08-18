@@ -33,7 +33,7 @@ router.post('/', async (req, res) => {
 
     const from = message.from;
     const text = message.text.body;
-    const companyId = process.env.DEFAULT_COMPANY_ID; // Step 2 me isko set karenge
+    const companyId = process.env.DEFAULT_COMPANY_ID;
 
     console.log(`Message from ${from}: ${text}`);
 
@@ -49,20 +49,54 @@ router.post('/', async (req, res) => {
       });
     }
 
-    // Customer ka message save karo
+    // Step 1: Intent aur sentiment detect karo
+    let intent = 'unknown';
+    let sentiment = 'neutral';
+    try {
+      const analysisResponse = await axios.post(
+        'https://api.groq.com/openai/v1/chat/completions',
+        {
+          model: 'openai/gpt-oss-20b',
+          messages: [
+            {
+              role: 'system',
+              content: 'Analyze the customer message and respond ONLY with valid JSON in this exact format: {"intent": "one of: inquiry, complaint, order, support, greeting, other", "sentiment": "one of: positive, neutral, negative"}. No other text.'
+            },
+            { role: 'user', content: text }
+          ]
+        },
+        { headers: { Authorization: `Bearer ${process.env.GROQ_API_KEY}` } }
+      );
+
+      const analysisText = analysisResponse.data.choices[0].message.content;
+      const parsed = JSON.parse(analysisText.match(/\{[\s\S]*\}/)[0]);
+      intent = parsed.intent || 'unknown';
+      sentiment = parsed.sentiment || 'neutral';
+    } catch (analysisError) {
+      console.log('Intent/sentiment analysis failed, using defaults:', analysisError.message);
+    }
+
+    // Customer ka message save karo (intent aur sentiment ke sath)
     await Message.create({
       conversationId: conversation._id,
       sender: 'customer',
       text: text,
-      sentiment: 'neutral'
+      intent: intent,
+      sentiment: sentiment
     });
 
-    // Groq se AI reply generate karo
+    // Step 2: Groq se AI reply generate karo (business-specific system prompt ke sath)
     const groqResponse = await axios.post(
       'https://api.groq.com/openai/v1/chat/completions',
       {
         model: 'openai/gpt-oss-20b',
-        messages: [{ role: 'user', content: text }]
+        messages: [
+          {
+            role: 'system',
+            content: 'You are the AI customer support assistant for NovaOS, an AI-powered business operating system. Reply to customer WhatsApp messages in a friendly, professional, and concise manner (2-3 sentences max). If you don\'t know something specific about pricing or features, tell the customer a team member will follow up.'
+          },
+          { role: 'user', content: text }
+        ]
       },
       { headers: { Authorization: `Bearer ${process.env.GROQ_API_KEY}` } }
     );
