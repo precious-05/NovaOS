@@ -41,6 +41,7 @@ const fetchNewEmails = async (req, res, next) => {
       const email = await Email.create({
         companyId,
         gmailMessageId: msg.id,
+        threadId: full.data.threadId,
         from,
         to,
         subject,
@@ -104,4 +105,76 @@ const summarizeEmail = async (req, res, next) => {
   }
 };
 
-module.exports = { fetchNewEmails, getEmails, summarizeEmail };
+// AI se reply generate karo aur Gmail se bhejo
+const replyToEmail = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const email = await Email.findById(id);
+
+    if (!email) {
+      return res.status(404).json({ success: false, message: 'Email not found' });
+    }
+
+    // Step 1: Groq se reply generate karo
+    const groqResponse = await axios.post(
+      'https://api.groq.com/openai/v1/chat/completions',
+      {
+        model: 'openai/gpt-oss-20b',
+        messages: [{
+          role: 'user',
+          content: `Write a short, professional reply to this email. Only give the reply text, no subject line:\n\nFrom: ${email.from}\nSubject: ${email.subject}\nBody: ${email.body}`
+        }]
+      },
+      { headers: { Authorization: `Bearer ${process.env.GROQ_API_KEY}` } }
+    );
+
+    const aiReply = groqResponse.data.choices[0].message.content;
+
+    // Step 2: Gmail se reply bhejo
+    const gmail = getGmailClient();
+
+    const fromEmailMatch = email.from.match(/<(.+)>/);
+    const toAddress = fromEmailMatch ? fromEmailMatch[1] : email.from;
+
+    const replySubject = email.subject.startsWith('Re:') ? email.subject : `Re: ${email.subject}`;
+
+    const rawMessage = [
+      `To: ${toAddress}`,
+      `Subject: ${replySubject}`,
+      `In-Reply-To: ${email.gmailMessageId}`,
+      `References: ${email.gmailMessageId}`,
+      'Content-Type: text/plain; charset=utf-8',
+      '',
+      aiReply
+    ].join('\n');
+
+    const encodedMessage = Buffer.from(rawMessage)
+      .toString('base64')
+      .replace(/\+/g, '-')
+      .replace(/\//g, '_')
+      .replace(/=+$/, '');
+
+    await gmail.users.messages.send({
+      userId: 'me',
+      requestBody: {
+        raw: encodedMessage,
+        threadId: email.threadId
+      }
+    });
+
+    // Step 3: Database update karo
+    email.aiReply = aiReply;
+    email.status = 'replied';
+    await email.save();
+
+    res.status(200).json({
+      success: true,
+      message: 'Reply generated and sent successfully',
+      data: { email }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+module.exports = { fetchNewEmails, getEmails, summarizeEmail, replyToEmail };

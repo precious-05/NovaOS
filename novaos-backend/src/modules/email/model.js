@@ -11,6 +11,9 @@ const emailSchema = new mongoose.Schema({
     unique: true,
     sparse: true
   },
+  threadId: {
+    type: String
+  },
   from: {
     type: String,
     required: true
