@@ -5,7 +5,7 @@ const validateSendMessage = ({ conversationId, text }) => {
     errors.push('conversationId is required');
   }
 
-  if (!text || text.trim().length === 0) {
+  if (typeof text !== 'string' || text.trim().length === 0) {
     errors.push('Message text is required');
   }
 

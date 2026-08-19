@@ -1,3 +1,4 @@
+const mongoose = require('mongoose');
 const { Conversation, Message } = require('./model');
 const { validateSendMessage } = require('./validator');
 
@@ -59,6 +60,15 @@ const createConversation = async (req, res, next) => {
 const getMessages = async (req, res, next) => {
   try {
     const { id } = req.params;
+    const parsedLimit = Number.parseInt(req.query.limit, 10);
+    const limit = Number.isNaN(parsedLimit) ? 200 : Math.min(Math.max(parsedLimit, 1), 500);
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid conversation id'
+      });
+    }
 
     const conversation = await Conversation.findOne({
       _id: id,
@@ -72,7 +82,9 @@ const getMessages = async (req, res, next) => {
       });
     }
 
-    const messages = await Message.find({ conversationId: id }).sort({ timestamp: 1 });
+    const messages = await Message.find({ conversationId: id })
+      .sort({ timestamp: 1 })
+      .limit(limit);
 
     res.status(200).json({
       success: true,
@@ -95,6 +107,13 @@ const sendMessage = async (req, res, next) => {
         success: false,
         message: 'Validation failed',
         errors: validation.errors
+      });
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(conversationId)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid conversation id'
       });
     }
 
@@ -144,6 +163,13 @@ const sendEmail = async (req, res, next) => {
       return res.status(400).json({
         success: false,
         message: 'conversationId and text are required'
+      });
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(conversationId)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid conversation id'
       });
     }
 
